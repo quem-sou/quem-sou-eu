@@ -1,246 +1,184 @@
 <!DOCTYPE html>
 <html lang="pt">
 <head>
-<meta charset="UTF-8" />
-<title>Quem Sou Eu</title>
+  <meta charset="UTF-8" />
+  <title>Quem Sou Eu</title>
 
-<style>
-body {
-margin: 0;
-font-family: Arial, sans-serif;
-background: url("assets/images/background.jpg") no-repeat center center fixed;
-background-size: cover;
-color: white;
-}
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: #fff;
+      text-align: center;
+      padding: 40px;
+    }
 
-#container {
-width: 420px;
-margin: 80px auto;
-background: rgba(0,0,0,0.75);
-padding: 20px;
-border-radius: 12px;
-}
+    h1 {
+      margin-bottom: 10px;
+    }
 
-h1 {
-text-align: center;
-}
+    select, input, button {
+      padding: 10px;
+      margin: 5px;
+      font-size: 16px;
+    }
 
-select, input, button {
-width: 100%;
-padding: 10px;
-margin-top: 10px;
-font-size: 16px;
-}
+    button {
+      cursor: pointer;
+    }
 
-button {
-background: gold;
-border: none;
-cursor: pointer;
-font-weight: bold;
-}
+    #respostas {
+      margin-top: 20px;
+      min-height: 120px;
+      background: #1e1e1e;
+      padding: 15px;
+      border-radius: 5px;
+      text-align: left;
+    }
 
-button:hover {
-opacity: 0.9;
-}
+    .linha {
+      margin-bottom: 8px;
+    }
 
-#chat {
-height: 220px;
-overflow-y: auto;
-margin-top: 10px;
-}
+    .pergunta {
+      color: #8ecae6;
+    }
 
-.user {
-text-align: right;
-color: #4fc3f7;
-}
+    .resposta {
+      color: #ffd166;
+    }
 
-.bot {
-text-align: left;
-}
-
-#top-bar {
-display: flex;
-justify-content: space-between;
-align-items: center;
-}
-
-#audioBtn {
-cursor: pointer;
-font-size: 22px;
-}
-</style>
+    .resultado {
+      font-size: 20px;
+      margin-top: 20px;
+      font-weight: bold;
+    }
+  </style>
 </head>
 
 <body>
 
-<audio id="bgAudio" loop></audio>
+  <h1>🎭 Quem Sou Eu</h1>
+  <p>Escolhe uma categoria e tenta adivinhar a personagem</p>
 
-<div id="container">
+  <!-- CATEGORIA -->
+  <select id="categoria">
+    <option value="">-- escolher categoria --</option>
+    <option value="cinema">Cinema / TV</option>
+    <option value="historia">História</option>
+    <option value="ciencia">Ciência</option>
+    <option value="politica">Política</option>
+  </select>
 
-<div id="top-bar">
-<h1>QUEM SOU EU</h1>
-<div id="audioBtn">🔇</div>
-</div>
+  <button onclick="iniciarJogo()">Iniciar Jogo</button>
 
-<div id="menu">
-<select id="category">
-<option value="">Escolhe a categoria</option>
-<option value="cinema">Cinema & TV</option>
-<option value="desporto">Desporto</option>
-<option value="historia">História</option>
-<option value="musica">Música</option>
-</select>
+  <hr>
 
-<select id="difficulty">
-<option value="">Escolhe a dificuldade</option>
-<option value="iniciante">Iniciante</option>
-<option value="experiente">Experiente</option>
-<option value="genio">Génio</option>
-</select>
+  <!-- PERGUNTAS -->
+  <input
+    type="text"
+    id="pergunta"
+    placeholder="Faz uma pergunta (sim/não)"
+    size="40"
+  />
+  <button onclick="enviarPergunta()">Perguntar</button>
 
-<button onclick="startGame()">Começar Jogo</button>
-</div>
+  <br><br>
 
-<div id="game" style="display:none;">
-<p><b>Tentativas:</b> <span id="tries">❤️❤️❤️</span></p>
-<div id="chat"></div>
-<input id="question" placeholder="Escreve a tua pergunta..." />
-<button onclick="sendQuestion()">Enviar</button>
-<button onclick="guess()">Adivinhar Personagem</button>
-<button onclick="backMenu()">← Voltar</button>
-</div>
+  <!-- ADIVINHAR -->
+  <input
+    type="text"
+    id="nome"
+    placeholder="Adivinha o nome"
+    size="30"
+  />
+  <button onclick="adivinhar()">Adivinhar</button>
 
-</div>
+  <br><br>
 
-<script>
-const audio = document.getElementById("bgAudio");
-const audioBtn = document.getElementById("audioBtn");
+  <button onclick="resetar()">Reiniciar Jogo</button>
 
-let audioOn = false;
-let attempts = 3;
-let currentCategory = null;
+  <!-- RESPOSTAS -->
+  <div id="respostas"></div>
 
-/* ================= AUDIO ================= */
+  <div id="resultado" class="resultado"></div>
 
-function setAudio(src, autoplay=false) {
-audio.pause();
-audio.src = src;
-audio.load();
-if (autoplay) {
-audio.play();
-audioOn = true;
-audioBtn.textContent = "🔊";
-} else {
-audioOn = false;
-audioBtn.textContent = "🔇";
-}
-}
+  <script>
+    const API = "http://localhost:3000";
 
-audioBtn.onclick = () => {
-if (!audio.src) return;
-if (audioOn) {
-audio.pause();
-audioBtn.textContent = "🔇";
-} else {
-audio.play();
-audioBtn.textContent = "🔊";
-}
-audioOn = !audioOn;
-};
+    function escreverPerguntaResposta(p, r) {
+      const div = document.getElementById("respostas");
+      div.innerHTML += `
+        <div class="linha">
+          <span class="pergunta">❓ ${p}</span><br>
+          <span class="resposta">➡ ${r}</span>
+        </div>
+      `;
+      div.scrollTop = div.scrollHeight;
+    }
 
-/* ================= MENU ================= */
+    async function iniciarJogo() {
+      const categoria = document.getElementById("categoria").value;
 
-setAudio("assets/audio/menu.mp3", false);
+      if (!categoria) {
+        alert("Escolhe uma categoria");
+        return;
+      }
 
-async function startGame() {
-const category = document.getElementById("category").value;
-const difficulty = document.getElementById("difficulty").value;
+      await fetch(`${API}/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoria })
+      });
 
-if (!category || !difficulty) {
-alert("Escolhe categoria e dificuldade");
-return;
-}
+      document.getElementById("respostas").innerHTML = "";
+      document.getElementById("resultado").innerText = "";
 
-currentCategory = category;
+      alert("Jogo iniciado! Faz perguntas.");
+    }
 
-await fetch("http://localhost:3000/start", {
-method: "POST",
-headers: {"Content-Type": "application/json"},
-body: JSON.stringify({ category, difficulty })
-});
+    async function enviarPergunta() {
+      const pergunta = document.getElementById("pergunta").value;
+      if (!pergunta) return;
 
-document.getElementById("menu").style.display = "none";
-document.getElementById("game").style.display = "block";
+      const res = await fetch(`${API}/pergunta`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pergunta })
+      });
 
-attempts = 3;
-document.getElementById("tries").textContent = "❤️❤️❤️";
-document.getElementById("chat").innerHTML =
-`<div class="bot">Olá! Quem achas que sou?</div>`;
+      const data = await res.json();
+      escreverPerguntaResposta(pergunta, data.resposta);
 
-setAudio(`assets/audio/${category}.mp3`, true);
-}
+      document.getElementById("pergunta").value = "";
+    }
 
-/* ================= GAME ================= */
+    async function adivinhar() {
+      const nome = document.getElementById("nome").value;
+      if (!nome) return;
 
-async function sendQuestion() {
-const input = document.getElementById("question");
-if (!input.value) return;
+      const res = await fetch(`${API}/adivinhar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome })
+      });
 
-addChat("user", input.value);
+      const data = await res.json();
 
-const res = await fetch("http://localhost:3000/ask", {
-method: "POST",
-headers: {"Content-Type": "application/json"},
-body: JSON.stringify({ question: input.value })
-});
+      document.getElementById("resultado").innerText = data.mensagem;
 
-const data = await res.json();
-addChat("bot", data.answer);
-input.value = "";
-}
+      if (data.resultado === "certo") {
+        document.getElementById("nome").value = "";
+      }
+    }
 
-function addChat(who, text) {
-const chat = document.getElementById("chat");
-const div = document.createElement("div");
-div.className = who;
-div.textContent = text;
-chat.appendChild(div);
-chat.scrollTop = chat.scrollHeight;
-}
-
-async function guess() {
-const name = prompt("Qual é o nome da personagem?");
-if (!name) return;
-
-const res = await fetch("http://localhost:3000/guess", {
-method: "POST",
-headers: {"Content-Type": "application/json"},
-body: JSON.stringify({ name })
-});
-
-const data = await res.json();
-addChat("bot", data.result);
-
-if (!data.correct) {
-attempts--;
-document.getElementById("tries").textContent = "❤️".repeat(attempts);
-}
-
-if (data.gameOver || data.correct) {
-audio.pause();
-audioBtn.textContent = "🔇";
-}
-}
-
-/* ================= BACK ================= */
-
-function backMenu() {
-audio.pause();
-setAudio("assets/audio/menu.mp3", false);
-document.getElementById("game").style.display = "none";
-document.getElementById("menu").style.display = "block";
-}
-</script>
+    async function resetar() {
+      await fetch(`${API}/reset`, { method: "POST" });
+      document.getElementById("respostas").innerHTML = "";
+      document.getElementById("resultado").innerText = "";
+      alert("Jogo reiniciado");
+    }
+  </script>
 
 </body>
 </html>

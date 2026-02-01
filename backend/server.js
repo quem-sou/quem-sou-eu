@@ -1,149 +1,146 @@
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
-import OpenAI from "openai";
-
-dotenv.config();
+import fs from "fs";
+import path from "path";
 
 const app = express();
+const PORT = 3000;
+
 app.use(cors());
 app.use(express.json());
 
-const PORT = 3000;
+let personagemAtual = null;
 
-const openai = new OpenAI({
-apiKey: process.env.OPENAI_API_KEY
-});
-
-/* =========================
-ESTADO GLOBAL DO JOGO
-========================= */
-
-let currentCharacter = null;
-let attemptsLeft = 3;
-
-/* =========================
-PERSONAGENS (EXEMPLOS)
-SÓ FAMOSOS MUNDIAIS
-========================= */
-
-const characters = {
-cinema: [
-{ name: "Leonardo DiCaprio", gender: "male" },
-{ name: "Meryl Streep", gender: "female" },
-{ name: "Brad Pitt", gender: "male" },
-{ name: "Angelina Jolie", gender: "female" }
-],
-desporto: [
-{ name: "Cristiano Ronaldo" },
-{ name: "Lionel Messi" }
-],
-historia: [
-{ name: "Napoleon Bonaparte" },
-{ name: "Cleopatra" }
-],
-musica: [
-{ name: "Michael Jackson" },
-{ name: "Madonna" }
-]
-};
-
-/* =========================
-START GAME
-========================= */
-
-app.post("/start", async (req, res) => {
-const { category, difficulty } = req.body;
-
-const list = characters[category];
-if (!list) {
-return res.status(400).json({ error: "Categoria inválida" });
+/* ===============================
+   FUNÇÃO: carregar categoria
+================================ */
+function carregarCategoria(nomeFicheiro) {
+  const caminho = path.join(process.cwd(), "backend", "data", nomeFicheiro);
+  const conteudo = fs.readFileSync(caminho, "utf-8");
+  return JSON.parse(conteudo);
 }
 
-currentCharacter = list[Math.floor(Math.random() * list.length)];
-attemptsLeft = 3;
+/* ===============================
+   ESCOLHER PERSONAGEM
+================================ */
+app.post("/start", (req, res) => {
+  const { categoria } = req.body;
 
-console.log("🎭 Personagem escolhida:", currentCharacter.name);
+  let dados;
 
-res.json({ message: "Jogo iniciado" });
+  switch (categoria) {
+    case "cinema":
+      dados = carregarCategoria("cinema.json");
+      break;
+    case "historia":
+      dados = carregarCategoria("historia.json");
+      break;
+    case "ciencia":
+      dados = carregarCategoria("ciencia.json");
+      break;
+    case "politica":
+      dados = carregarCategoria("politica.json");
+      break;
+    default:
+      return res.status(400).json({ erro: "Categoria inválida" });
+  }
+
+  const lista = dados.personagens;
+  const sorteado = lista[Math.floor(Math.random() * lista.length)];
+
+  personagemAtual = {
+    categoria: dados.categoria,
+    dados: sorteado
+  };
+
+  console.log("🎯 Personagem escolhida:", personagemAtual.dados.nome);
+
+  res.json({
+    mensagem: "Personagem escolhida. Podes começar a perguntar."
+  });
 });
 
-/* =========================
-ASK QUESTION
-========================= */
+/* ===============================
+   PERGUNTAS (SIM / NÃO)
+================================ */
+app.post("/pergunta", (req, res) => {
+  if (!personagemAtual) {
+    return res.status(400).json({ erro: "Jogo não iniciado" });
+  }
 
-app.post("/ask", async (req, res) => {
-if (!currentCharacter) {
-return res.json({ answer: "O jogo ainda não começou." });
-}
+  const { pergunta } = req.body;
+  const p = pergunta.toLowerCase();
+  const dados = personagemAtual.dados;
 
-const { question } = req.body;
+  let resposta = "Não sei responder a isso.";
 
-const systemPrompt = `
-Estás a jogar "Quem Sou Eu".
+  if (p.includes("homem") || p.includes("masculino")) {
+    resposta = dados.sexo === "masculino" ? "Sim" : "Não";
+  }
 
-REGRAS OBRIGATÓRIAS:
-- A personagem é ${currentCharacter.gender === "female" ? "uma mulher" : "um homem"}
-- NUNCA digas o nome da personagem
-- Responde de forma clara, humana e objetiva
-- Podes dizer factos verdadeiros (Óscares, anos, filmes)
-- Se a pergunta pedir diretamente o nome → responde: "Não posso dizer o meu nome."
-`;
+  if (p.includes("mulher") || p.includes("feminino")) {
+    resposta = dados.sexo === "feminino" ? "Sim" : "Não";
+  }
 
-const completion = await openai.chat.completions.create({
-model: "gpt-4o-mini",
-messages: [
-{ role: "system", content: systemPrompt },
-{ role: "user", content: question }
-]
+  if (p.includes("vivo")) {
+    resposta = dados.vivo ? "Sim" : "Não";
+  }
+
+  if (p.includes("oscar")) {
+    resposta = dados.oscar ? "Sim" : "Não";
+  }
+
+  if (p.includes("ator")) {
+    resposta = dados.tipo === "ator" ? "Sim" : "Não";
+  }
+
+  if (p.includes("americana")) {
+    resposta = dados.nacionalidade === "americana" ? "Sim" : "Não";
+  }
+
+  res.json({ resposta });
 });
 
-res.json({
-answer: completion.choices[0].message.content
-});
-});
+/* ===============================
+   ADIVINHAR NOME
+================================ */
+app.post("/adivinhar", (req, res) => {
+  if (!personagemAtual) {
+    return res.status(400).json({ erro: "Jogo não iniciado" });
+  }
 
-/* =========================
-GUESS CHARACTER
-========================= */
+  const { nome } = req.body;
 
-app.post("/guess", (req, res) => {
-if (!currentCharacter) {
-return res.json({ result: "O jogo ainda não começou." });
-}
+  const nomeJogador = nome.toLowerCase().trim();
+  const nomeReal = personagemAtual.dados.nome.toLowerCase();
 
-const guess = req.body.name.toLowerCase().trim();
-const correctName = currentCharacter.name.toLowerCase();
+  if (nomeJogador === nomeReal) {
+    const vencedor = personagemAtual.dados.nome;
+    personagemAtual = null;
 
-if (guess === correctName) {
-return res.json({
-correct: true,
-gameOver: true,
-result: `🎉 Acertaste! Eu sou ${currentCharacter.name}.`
-});
-}
+    return res.json({
+      resultado: "certo",
+      mensagem: `🎉 Correto! A personagem era ${vencedor}`
+    });
+  }
 
-attemptsLeft--;
-
-if (attemptsLeft <= 0) {
-return res.json({
-correct: false,
-gameOver: true,
-result: `❌ Fim do jogo! Eu era ${currentCharacter.name}.`
-});
-}
-
-return res.json({
-correct: false,
-gameOver: false,
-result: `❌ Errado. Restam ${attemptsLeft} tentativas.`
-});
+  res.json({
+    resultado: "errado",
+    mensagem: "❌ Errado. Continua a tentar."
+  });
 });
 
-/* =========================
-START SERVER
-========================= */
+/* ===============================
+   RESET JOGO
+================================ */
+app.post("/reset", (req, res) => {
+  personagemAtual = null;
+  res.json({ mensagem: "Jogo reiniciado." });
+});
 
+/* ===============================
+   START SERVER
+================================ */
 app.listen(PORT, () => {
-console.log(`✅ Servidor ativo em http://localhost:${PORT}`);
+  console.log(`✅ Servidor ativo em http://localhost:${PORT}`);
 });

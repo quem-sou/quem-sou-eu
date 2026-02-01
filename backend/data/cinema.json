@@ -1,0 +1,32 @@
+{
+  "categoria": "Cinema / TV",
+  "personagens": [
+    {
+      "id": 1,
+      "nome": "Leonardo DiCaprio",
+      "tipo": "ator",
+      "sexo": "masculino",
+      "nacionalidade": "americana",
+      "vivo": true,
+      "oscar": true
+    },
+    {
+      "id": 2,
+      "nome": "Tom Hanks",
+      "tipo": "ator",
+      "sexo": "masculino",
+      "nacionalidade": "americana",
+      "vivo": true,
+      "oscar": true
+    },
+    {
+      "id": 3,
+      "nome": "Natalie Portman",
+      "tipo": "atriz",
+      "sexo": "feminino",
+      "nacionalidade": "americana",
+      "vivo": true,
+      "oscar": true
+    }
+  ]
+}
